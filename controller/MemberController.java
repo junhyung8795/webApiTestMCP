@@ -54,6 +54,7 @@ public class MemberController {
         if (result == 1) {
             // Location 헤더에 새로 생성된 리소스 URI 넣어줄 수도 있음
             URI location = URI.create("/api/members/" + member.getMemberId());
+            
             return ResponseEntity
                     .status(HttpStatusCode.valueOf(201))
                     .location(location)
@@ -89,8 +90,7 @@ public class MemberController {
            
             return ResponseEntity.status(HttpStatus.OK)
                     .body(ApiResponse.success(HttpStatus.OK, "로그인 성공",  
-                    	new HashMap<String, Object>() {
-                    	private static final long serialVersionUID = 5698154608853982208L;
+                    	new HashMap<String, Object>() {private static final long serialVersionUID = 5698154608853982208L;
 
 						{
                         put("memberId", member.getMemberId());

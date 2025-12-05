@@ -1,5 +1,5 @@
 -- setup_permissions.sql
--- MySQL 권한 설정 스크립트
+-- MCP가 디비에 접근하기 위해 필요한 권한 설정 스크립트
 
 -- 1. 현재 사용자 확인
 SELECT USER(), DATABASE();

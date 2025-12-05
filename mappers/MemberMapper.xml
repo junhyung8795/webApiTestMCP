@@ -35,7 +35,7 @@
     <select id="existsId" parameterType="String" resultType="boolean">
         SELECT CASE WHEN COUNT(1) > 0 THEN TRUE ELSE FALSE END
         FROM member
-        WHERE id = #{id}
+        WHERE ID = #{id}
     </select>
 
     <select id="existsNickname" parameterType="String" resultType="boolean">
@@ -57,21 +57,13 @@
     </select>
 
     <insert id="insertMember" parameterType="Member">
-        INSERT INTO member (id, password, nickname, email, is_active, signup_date)
+        INSERT INTO member (ID, password, nickname, email, is_active, signup_date)
         VALUES (#{id}, #{password}, #{nickname}, #{email}, 1, NOW());
     </insert>
     
        <!-- 로그인 - ID와 password로 회원 조회 -->
     <select id="selectMemberByIdAndPassword" resultType="Member">
-        SELECT 
-            member_id AS memberId,
-            ID AS id,
-            password,
-            nickname,
-            email,
-            signup_date AS signupDate,
-            is_active AS isActive,
-            deleted_date AS deletedDate
+        SELECT *
         FROM member
         WHERE ID = #{id} AND password = #{password} AND is_active = 1
     </select>

@@ -6,7 +6,7 @@
 <mapper namespace="com.codeboy.mvc.model.dao.UserScoreDao">
 
     <insert id="insertScore">
-        INSERT INTO user_score(member_id, score)
+        INSERT INTO user_score (member_id, score)
         VALUES(#{memberId}, #{score})
     </insert>
 

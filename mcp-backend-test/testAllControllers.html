@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="ko">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>전체 컨트롤러 API 테스트</title>
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+        <style>
+            body {
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                max-width: 1400px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }
+            .container {
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }
+            h1 {
+                color: #333;
+                border-bottom: 3px solid #4caf50;
+                padding-bottom: 10px;
+            }
+            button {
+                background-color: #4caf50;
+                color: white;
+                padding: 12px 24px;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 16px;
+                margin: 10px 5px;
+            }
+            button:hover {
+                background-color: #45a049;
+            }
+            button:disabled {
+                background-color: #cccccc;
+                cursor: not-allowed;
+            }
+            #console-output {
+                background: #1e1e1e;
+                color: #d4d4d4;
+                padding: 20px;
+                border-radius: 5px;
+                font-family: "Courier New", monospace;
+                font-size: 12px;
+                max-height: 600px;
+                overflow-y: auto;
+                margin-top: 20px;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }
+            .status-section {
+                margin: 20px 0;
+                padding: 15px;
+                background: #f9f9f9;
+                border-left: 4px solid #2196f3;
+                border-radius: 5px;
+            }
+            .status-section h2 {
+                margin-top: 0;
+                color: #2196f3;
+            }
+            .summary {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+                margin: 20px 0;
+            }
+            .summary-item {
+                background: #e3f2fd;
+                padding: 15px;
+                border-radius: 5px;
+                text-align: center;
+            }
+            .summary-item h3 {
+                margin: 0 0 10px 0;
+                color: #1976d2;
+            }
+            .summary-item .value {
+                font-size: 24px;
+                font-weight: bold;
+                color: #333;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔍 전체 컨트롤러 API 테스트</h1>
+            <p>Vite 프록시를 통해 모든 컨트롤러의 엔드포인트를 테스트합니다.</p>
+            <p>
+                <strong>주의:</strong> 브라우저 콘솔(F12)을 열어서 상세한 JSON
+                응답을 확인하세요.
+            </p>
+
+            <div class="status-section">
+                <h2>테스트 제어</h2>
+                <button id="startBtn" onclick="startTest()">테스트 시작</button>
+                <button onclick="downloadResults()" id="downloadBtn" disabled>
+                    결과 다운로드
+                </button>
+                <button onclick="clearConsole()">콘솔 지우기</button>
+            </div>
+
+            <div
+                class="status-section"
+                id="summarySection"
+                style="display: none"
+            >
+                <h2>테스트 결과 요약</h2>
+                <div class="summary">
+                    <div class="summary-item">
+                        <h3>총 테스트</h3>
+                        <div class="value" id="totalCount">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <h3>성공</h3>
+                        <div
+                            class="value"
+                            style="color: #4caf50"
+                            id="successCount"
+                        >
+                            0
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <h3>실패</h3>
+                        <div
+                            class="value"
+                            style="color: #f44336"
+                            id="failCount"
+                        >
+                            0
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <h3>성공률</h3>
+                        <div class="value" id="successRate">0%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-section">
+                <h2>콘솔 출력</h2>
+                <div id="console-output"></div>
+            </div>
+        </div>
+
+        <script>
+            // axios 기본 설정 (쿠키 자동 전송)
+            axios.defaults.withCredentials = true;
+
+            const results = [];
+            let loggedInMemberId = null;
+            let step = 1;
+
+            function log(message, type = "info") {
+                const output = document.getElementById("console-output");
+                const timestamp = new Date().toLocaleTimeString();
+                const prefix =
+                    type === "error" ? "❌" : type === "success" ? "✅" : "ℹ️";
+                output.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+                output.scrollTop = output.scrollHeight;
+
+                // 브라우저 콘솔에도 출력
+                if (type === "error") {
+                    console.error(message);
+                } else if (type === "success") {
+                    console.log(message);
+                } else {
+                    console.log(message);
+                }
+            }
+
+            function clearConsole() {
+                document.getElementById("console-output").textContent = "";
+                console.clear();
+            }
+
+            async function testAPI(stepNum, name, method, url, data) {
+                log(`\n[${stepNum}] ${name}`, "info");
+                log(`  ${method} ${url}`, "info");
+                if (data !== undefined) {
+                    log(
+                        `  Request Body: ${JSON.stringify(data, null, 2)}`,
+                        "info"
+                    );
+                    console.log("Request Body:", data);
+                }
+
+                try {
+                    let response;
+                    const config = {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    };
+
+                    switch (method.toUpperCase()) {
+                        case "GET":
+                            response = await axios.get(url, config);
+                            break;
+                        case "POST":
+                            response = await axios.post(url, data, config);
+                            break;
+                        case "PUT":
+                            response = await axios.put(url, data, config);
+                            break;
+                        case "PATCH":
+                            response = await axios.patch(url, data, config);
+                            break;
+                        case "DELETE":
+                            response = await axios.delete(url, config);
+                            break;
+                        default:
+                            throw new Error(`Unknown method: ${method}`);
+                    }
+
+                    const result = {
+                        step: stepNum,
+                        name,
+                        method,
+                        url,
+                        success:
+                            response.status >= 200 && response.status < 300,
+                        status: response.status,
+                        response: response.data,
+                    };
+
+                    log(`  ✅ Status: ${response.status}`, "success");
+                    log(
+                        `  Response: ${JSON.stringify(response.data, null, 2)}`,
+                        "info"
+                    );
+                    console.log(
+                        `[${stepNum}] ${name} - Response:`,
+                        response.data
+                    );
+                    results.push(result);
+                    return result;
+                } catch (err) {
+                    const status = err.response?.status;
+                    const errorBody = err.response?.data ?? err.message;
+
+                    const result = {
+                        step: stepNum,
+                        name,
+                        method,
+                        url,
+                        success: false,
+                        status,
+                        error: errorBody,
+                    };
+
+                    log(`  ❌ Status: ${status ?? "N/A"}`, "error");
+                    log(
+                        `  Error: ${JSON.stringify(errorBody, null, 2)}`,
+                        "error"
+                    );
+                    console.error(`[${stepNum}] ${name} - Error:`, errorBody);
+                    results.push(result);
+                    return result;
+                }
+            }
+
+            async function startTest() {
+                const startBtn = document.getElementById("startBtn");
+                startBtn.disabled = true;
+                startBtn.textContent = "테스트 진행 중...";
+
+                results.length = 0;
+                step = 1;
+                loggedInMemberId = null;
+                clearConsole();
+
+                log("=== 전체 컨트롤러 테스트 시작 ===", "info");
+                log("백엔드: http://localhost:8080 (Vite 프록시)", "info");
+
+                try {
+                    // 1. 로그인 시도 (회원 존재 확인)
+                    const loginCheck = await testAPI(
+                        step++,
+                        "로그인 시도 (회원 존재 확인)",
+                        "POST",
+                        "/api/auth/login",
+                        { id: "1", password: "1234" }
+                    );
+
+                    if (!loginCheck.success) {
+                        // 2. 회원가입
+                        const signup = await testAPI(
+                            step++,
+                            "회원가입 (id=1, password=1234)",
+                            "POST",
+                            "/api/member",
+                            {
+                                id: "1",
+                                password: "1234",
+                                nickname: "테스트유저1",
+                                email: "test1@test.com",
+                            }
+                        );
+
+                        if (!signup.success) {
+                            log(
+                                "회원가입 실패, 이후 테스트는 로그인 실패 상태에서 진행될 수 있습니다.",
+                                "error"
+                            );
+                        }
+
+                        // 3. 다시 로그인
+                        const loginAgain = await testAPI(
+                            step++,
+                            "로그인 재시도",
+                            "POST",
+                            "/api/auth/login",
+                            { id: "1", password: "1234" }
+                        );
+
+                        const apiResp = loginAgain.response;
+                        const memberId =
+                            apiResp?.data?.memberId ??
+                            apiResp?.memberId ??
+                            loginAgain.response?.memberId;
+                        if (
+                            loginAgain.success &&
+                            typeof memberId === "number"
+                        ) {
+                            loggedInMemberId = memberId;
+                        }
+                    } else {
+                        const apiResp = loginCheck.response;
+                        const memberId =
+                            apiResp?.data?.memberId ??
+                            apiResp?.memberId ??
+                            loginCheck.response?.memberId;
+                        if (typeof memberId === "number") {
+                            loggedInMemberId = memberId;
+                        }
+                    }
+
+                    log(
+                        `로그인된 memberId: ${
+                            loggedInMemberId ?? "알 수 없음"
+                        }`,
+                        "info"
+                    );
+
+                    // === MemberController ===
+                    await testAPI(
+                        step++,
+                        "아이디 중복 체크",
+                        "POST",
+                        "/api/check-id",
+                        {
+                            value: "1",
+                        }
+                    );
+                    await testAPI(
+                        step++,
+                        "이메일 중복 체크",
+                        "POST",
+                        "/api/check-email",
+                        {
+                            value: "test1@test.com",
+                        }
+                    );
+                    await testAPI(
+                        step++,
+                        "닉네임 중복 체크",
+                        "POST",
+                        "/api/check-nickname",
+                        { value: "테스트유저1" }
+                    );
+                    await testAPI(
+                        step++,
+                        "회원 정보 조회 (하드코딩 memberId=1)",
+                        "GET",
+                        "/api/members/"
+                    );
+
+                    // === UserProblemSetController ===
+                    const createSet = await testAPI(
+                        step++,
+                        "유저 문제세트 생성",
+                        "POST",
+                        "/api/user-problem-sets"
+                    );
+
+                    let userProblemSetId = null;
+
+                    const mySet = await testAPI(
+                        step++,
+                        "내 유저 문제세트 조회",
+                        "GET",
+                        "/api/user-problem-sets/me"
+                    );
+                    if (
+                        mySet.success &&
+                        mySet.response?.data?.userProblemSetId
+                    ) {
+                        userProblemSetId = mySet.response.data.userProblemSetId;
+                    }
+                    console.log(userProblemSetId);
+                    await testAPI(
+                        step++,
+                        "유저 문제세트 전체 조회",
+                        "GET",
+                        "/api/user-problem-sets"
+                    );
+
+                    // === UserProblemController ===
+                    let userProblemIds = [];
+                    if (userProblemSetId) {
+                        await testAPI(
+                            step++,
+                            "유저 문제 일괄 등록",
+                            "POST",
+                            `/api/user-problems/sets/${userProblemSetId}`,
+                            [
+                                {
+                                    problemDescription:
+                                        "컨트롤러 전체 테스트 문제 1",
+                                    category: "INFOENGINEERING",
+                                    choice1: "1",
+                                    choice2: "2",
+                                    choice3: "3",
+                                    choice4: "4",
+                                    answer: "1",
+                                },
+                                {
+                                    problemDescription:
+                                        "컨트롤러 전체 테스트 문제 2",
+                                    category: "INFOENGINEERING",
+                                    choice1: "1",
+                                    choice2: "2",
+                                    choice3: "3",
+                                    choice4: "4",
+                                    answer: "2",
+                                },
+                            ]
+                        );
+
+                        const problems = await testAPI(
+                            step++,
+                            "유저 문제 목록 조회",
+                            "GET",
+                            `/api/user-problems/sets/${userProblemSetId}`
+                        );
+                        if (
+                            problems.success &&
+                            Array.isArray(problems.response?.data)
+                        ) {
+                            userProblemIds = problems.response.data
+                                .map((p) => p.userProblemId)
+                                .filter((id) => typeof id === "number");
+                        }
+                    }
+
+                    if (userProblemIds.length > 0) {
+                        await testAPI(
+                            step++,
+                            "유저 문제 수정",
+                            "PUT",
+                            `/api/user-problems/${userProblemIds[0]}`,
+                            {
+                                problemDescription:
+                                    "수정된 컨트롤러 테스트 문제",
+                                category: "INFOENGINEERING",
+                                choice1: "A",
+                                choice2: "B",
+                                choice3: "C",
+                                choice4: "D",
+                                answer: "2",
+                            }
+                        );
+                    }
+
+                    // === CommentController ===
+                    let commentIds = [];
+                    if (userProblemSetId) {
+                        const commentsBefore = await testAPI(
+                            step++,
+                            "댓글 조회 (초기)",
+                            "GET",
+                            `/api/comments/${userProblemSetId}`
+                        );
+                        if (
+                            commentsBefore.success &&
+                            Array.isArray(commentsBefore.response?.data)
+                        ) {
+                            commentIds = commentsBefore.response.data
+                                .map((c) => c.commentId)
+                                .filter((id) => typeof id === "number");
+                        }
+
+                        for (let i = 1; i <= 2; i++) {
+                            await testAPI(
+                                step++,
+                                `댓글 작성 ${i}`,
+                                "POST",
+                                `/api/comments/${userProblemSetId}`,
+                                { content: `컨트롤러 전체 테스트 댓글 ${i}` }
+                            );
+                        }
+
+                        const commentsAfter = await testAPI(
+                            step++,
+                            "댓글 재조회",
+                            "GET",
+                            `/api/comments/${userProblemSetId}`
+                        );
+                        if (
+                            commentsAfter.success &&
+                            Array.isArray(commentsAfter.response?.data)
+                        ) {
+                            commentIds = commentsAfter.response.data
+                                .map((c) => c.commentId)
+                                .filter((id) => typeof id === "number");
+                        }
+
+                        if (commentIds.length > 0) {
+                            await testAPI(
+                                step++,
+                                "댓글 수정",
+                                "PATCH",
+                                `/api/comments/${userProblemSetId}/${commentIds[0]}`,
+                                { content: "수정된 컨트롤러 테스트 댓글" }
+                            );
+                        }
+
+                        if (commentIds.length > 1) {
+                            await testAPI(
+                                step++,
+                                "댓글 삭제",
+                                "DELETE",
+                                `/api/comments/${userProblemSetId}/${commentIds[1]}`
+                            );
+                        }
+                    }
+
+                    // === UserScoreController ===
+                    await testAPI(step++, "점수 등록", "POST", "/api/scores", {
+                        score: 100,
+                    });
+                    await testAPI(
+                        step++,
+                        "전체 점수 조회",
+                        "GET",
+                        "/api/scores"
+                    );
+                    if (loggedInMemberId) {
+                        await testAPI(
+                            step++,
+                            "특정 회원 점수 조회",
+                            "GET",
+                            `/api/scores/${loggedInMemberId}`
+                        );
+                    }
+                    await testAPI(step++, "점수 수정", "PUT", "/api/scores", {
+                        score: 150,
+                    });
+
+                    // === ProblemController ===
+                    await testAPI(
+                        step++,
+                        "기본 문제 조회 (limit=10, category=INFOENGINEERING)",
+                        "GET",
+                        "/api/problem?limit=10&category=INFOENGINEERING"
+                    );
+
+                    // === IncorrectNoteController ===
+                    let incorrectNoteId = null;
+                    if (userProblemIds.length > 0) {
+                        const addNote = await testAPI(
+                            step++,
+                            "오답노트에 유저제작 문제 추가",
+                            "POST",
+                            "/api/incorrect-note",
+                            {
+                                problemId: null,
+                                userProblemId: userProblemIds[0],
+                                isUserProblem: true,
+                            }
+                        );
+                        if (addNote.success && addNote.response?.data) {
+                            incorrectNoteId = addNote.response.data;
+                        }
+                    }
+
+                    await testAPI(
+                        step++,
+                        "오답노트 전체 조회",
+                        "GET",
+                        "/api/incorrect-note"
+                    );
+
+                    if (incorrectNoteId) {
+                        await testAPI(
+                            step++,
+                            "오답노트 항목 삭제",
+                            "DELETE",
+                            `/api/incorrect-note/${incorrectNoteId}`
+                        );
+                    }
+
+                    // === QuizRoomController ===
+                    await testAPI(
+                        step++,
+                        "퀴즈방 목록 조회",
+                        "GET",
+                        "/api/quiz-room"
+                    );
+
+                    let quizRoomId = null;
+                    if (loggedInMemberId) {
+                        const createRoom = await testAPI(
+                            step++,
+                            "퀴즈방 생성 (방장)",
+                            "POST",
+                            `/api/quiz-room/create/${loggedInMemberId}`
+                        );
+                        if (createRoom.success && createRoom.response?.data) {
+                            quizRoomId = createRoom.response.data;
+                        }
+                    }
+
+                    if (quizRoomId) {
+                        await testAPI(
+                            step++,
+                            "퀴즈방 멤버 조회",
+                            "GET",
+                            `/api/quiz-room/${quizRoomId}/member`
+                        );
+
+                        await testAPI(
+                            step++,
+                            "퀴즈방 삭제",
+                            "DELETE",
+                            `/api/quiz-room/${quizRoomId}`
+                        );
+                    }
+
+                    // 로그아웃
+                    await testAPI(
+                        step++,
+                        "로그아웃",
+                        "POST",
+                        "/api/auth/logout"
+                    );
+
+                    // 결과 요약
+                    const total = results.length;
+                    const successCount = results.filter(
+                        (r) => r.success
+                    ).length;
+                    const failCount = total - successCount;
+                    const successRate =
+                        total === 0 ? 0 : (successCount / total) * 100;
+
+                    log("\n========================================", "info");
+                    log("전체 컨트롤러 테스트 결과 요약", "info");
+                    log("========================================", "info");
+                    log(`총 테스트 수: ${total}`, "info");
+                    log(`성공: ${successCount}`, "success");
+                    log(`실패: ${failCount}`, failCount > 0 ? "error" : "info");
+                    log(`성공률: ${successRate.toFixed(1)}%`, "info");
+
+                    log("\n✅ 성공한 테스트 목록:", "success");
+                    results
+                        .filter((r) => r.success)
+                        .forEach((r) => {
+                            log(
+                                `  [${r.step}] ${r.name} - ${r.method} ${r.url} (${r.status})`,
+                                "success"
+                            );
+                        });
+
+                    log("\n❌ 실패한 테스트 상세:", "error");
+                    const failed = results.filter((r) => !r.success);
+                    if (failed.length === 0) {
+                        log("  없음 (모든 테스트 성공)", "success");
+                    } else {
+                        failed.forEach((r) => {
+                            log(
+                                `  [${r.step}] ${r.name} - ${r.method} ${
+                                    r.url
+                                } (${r.status ?? "N/A"})`,
+                                "error"
+                            );
+                            log(
+                                `     Error: ${JSON.stringify(
+                                    r.error,
+                                    null,
+                                    2
+                                )}`,
+                                "error"
+                            );
+                        });
+                    }
+
+                    // 요약 표시
+                    document.getElementById("summarySection").style.display =
+                        "block";
+                    document.getElementById("totalCount").textContent = total;
+                    document.getElementById("successCount").textContent =
+                        successCount;
+                    document.getElementById("failCount").textContent =
+                        failCount;
+                    document.getElementById(
+                        "successRate"
+                    ).textContent = `${successRate.toFixed(1)}%`;
+
+                    document.getElementById("downloadBtn").disabled = false;
+                } catch (e) {
+                    log(`테스트 실행 중 예외 발생: ${e.message}`, "error");
+                    console.error("Fatal error:", e);
+                } finally {
+                    startBtn.disabled = false;
+                    startBtn.textContent = "테스트 시작";
+                }
+            }
+
+            function downloadResults() {
+                const total = results.length;
+                const successCount = results.filter((r) => r.success).length;
+                const failCount = total - successCount;
+                const successRate =
+                    total === 0 ? 0 : (successCount / total) * 100;
+
+                const now = new Date();
+                const timestamp = `${now.getFullYear()}${String(
+                    now.getMonth() + 1
+                ).padStart(2, "0")}${String(now.getDate()).padStart(
+                    2,
+                    "0"
+                )}${String(now.getHours()).padStart(2, "0")}${String(
+                    now.getMinutes()
+                ).padStart(2, "0")}`;
+                const filename = `testAllControllers_result_${timestamp}.md`;
+
+                let markdown = `# 전체 컨트롤러 API 테스트 결과\n\n`;
+                markdown += `**테스트 일시:** ${now.toLocaleString(
+                    "ko-KR"
+                )}\n\n`;
+                markdown += `## 요약\n\n`;
+                markdown += `- 총 테스트 수: ${total}\n`;
+                markdown += `- 성공: ${successCount}\n`;
+                markdown += `- 실패: ${failCount}\n`;
+                markdown += `- 성공률: ${successRate.toFixed(1)}%\n\n`;
+
+                markdown += `## 성공한 테스트\n\n`;
+                const successResults = results.filter((r) => r.success);
+                if (successResults.length === 0) {
+                    markdown += `없음\n\n`;
+                } else {
+                    successResults.forEach((r) => {
+                        markdown += `### [${r.step}] ${r.name}\n`;
+                        markdown += `- **Method:** ${r.method}\n`;
+                        markdown += `- **URL:** ${r.url}\n`;
+                        markdown += `- **Status:** ${r.status}\n`;
+                        markdown += `- **Response:**\n\`\`\`json\n${JSON.stringify(
+                            r.response,
+                            null,
+                            2
+                        )}\n\`\`\`\n\n`;
+                    });
+                }
+
+                markdown += `## 실패한 테스트\n\n`;
+                const failedResults = results.filter((r) => !r.success);
+                if (failedResults.length === 0) {
+                    markdown += `없음 (모든 테스트 성공! 🎉)\n\n`;
+                } else {
+                    failedResults.forEach((r) => {
+                        markdown += `### [${r.step}] ${r.name}\n`;
+                        markdown += `- **Method:** ${r.method}\n`;
+                        markdown += `- **URL:** ${r.url}\n`;
+                        markdown += `- **Status:** ${r.status ?? "N/A"}\n`;
+                        markdown += `- **Error:**\n\`\`\`json\n${JSON.stringify(
+                            r.error,
+                            null,
+                            2
+                        )}\n\`\`\`\n\n`;
+                    });
+                }
+
+                // 파일 다운로드
+                const blob = new Blob([markdown], { type: "text/markdown" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                log(`결과가 ${filename} 파일로 다운로드되었습니다.`, "success");
+            }
+        </script>
+    </body>
+</html>

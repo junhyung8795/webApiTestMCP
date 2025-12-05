@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS `board_test`.`member` (
   `nickname` VARCHAR(30) NOT NULL,
   `email` VARCHAR(30) NOT NULL,
   `signup_date` TIMESTAMP NOT NULL,
-  `status` VARCHAR(10) NOT NULL,
+  `is_active` TINYINT NOT NULL,
   `deleted_date` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`member_id`))
 ENGINE = InnoDB
@@ -48,13 +48,6 @@ SHOW CREATE TABLE member;  -- 진짜 member 테이블 정의
 
 
 
-INSERT INTO member (
-    ID, password, nickname, email, signup_date, status, deleted_date
-) VALUES ('user1', '1111111111111111', '닉네임1', 'user1@example.com', NOW(), 'ACTIVE', NULL),
-('user2', '2222', '닉네임2', 'user2@example.com', NOW(), 'ACTIVE', NULL),
-('user3', '33333333333', '닉네임3', 'user3@example.com', NOW(), 'INACTIVE', NULL),
-('user4', '444444444444444', '닉네임4', 'user4@example.com', NOW(), 'ACTIVE', NULL),
-('user5', '55555555555555', '닉네임5', 'user5@example.com', NOW(), 'INACTIVE', NULL);
 
 -- SELECT * FROM member;  -- 진짜 데이터 조회
 
@@ -169,12 +162,7 @@ CREATE TABLE IF NOT EXISTS `board_test`.`incorrect_note` (
   DEFAULT CHARACTER SET = utf8mb4
   COLLATE = utf8mb4_0900_ai_ci;
 
--- INSERT 예시
 
- INSERT INTO incorrect_note (member_id, problem_id, user_problem_id, is_user_problem)
-	VALUES (1, 1, null, 0);
-INSERT INTO incorrect_note (member_id, problem_id, user_problem_id, is_user_problem)
-	VALUES (1, null, 2, 1);
 
 -- 조회
  SELECT * FROM incorrect_note;
@@ -220,6 +208,15 @@ ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8mb4
 COLLATE = utf8mb4_0900_ai_ci;
 
+-- 퀴즈룸이 삭제되면 퀴즈룸멤버테이블에서 퀴즈룸아이디를 가지고있는 row가 연쇄적으로 삭제
+ALTER TABLE quiz_room_member
+DROP FOREIGN KEY FK_quiz_room_TO_quiz_room_member_1;
+
+ALTER TABLE quiz_room_member
+ADD CONSTRAINT FK_quiz_room_TO_quiz_room_member_1
+  FOREIGN KEY (room_id)
+  REFERENCES quiz_room (room_id)
+  ON DELETE CASCADE;
 
 -- -----------------------------------------------------
 -- Table `board_test`.`user_problem`
@@ -266,16 +263,21 @@ VALUES
 -- -----------------------------------------------------
 -- Table `board_test`.`user_score`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `board_test`.`user_score` (
-  `member_id` BIGINT NOT NULL AUTO_INCREMENT,
-  `score` INT NOT NULL,
-  PRIMARY KEY (`member_id`),
-  CONSTRAINT `FK_member_TO_user_score_1`
-    FOREIGN KEY (`member_id`)
-    REFERENCES `board_test`.`member` (`member_id`))
-ENGINE = InnoDB
-DEFAULT CHARACTER SET = utf8mb4
-COLLATE = utf8mb4_0900_ai_ci;
+-- user_score테이블고유의 아이디를 가지고있도록 변경. member_id가 이전에는 pk역할을했엇음
+-- 로직에 맞게 member_id를 member테이블에서 외래키로 가져오도록 변경
+CREATE TABLE IF NOT EXISTS user_score (
+    user_score_id BIGINT NOT NULL AUTO_INCREMENT,  -- 👉 점수 레코드 자체의 PK
+    member_id     BIGINT NOT NULL,                -- 👉 member 테이블 PK를 참조하는 FK
+    score         INT   NOT NULL,
+    PRIMARY KEY (user_score_id),
+    CONSTRAINT FK_member_TO_user_score_1
+        FOREIGN KEY (member_id)
+        REFERENCES member (member_id)
+        ON DELETE CASCADE
+);
+
+ALTER TABLE board_test.user_score
+ADD CONSTRAINT user_score_unique_member_id UNIQUE (member_id);
 
 
 SET SQL_MODE=@OLD_SQL_MODE;

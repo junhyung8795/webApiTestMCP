@@ -1,7 +1,9 @@
 package com.codeboy.mvc.model.service;
 
 import com.codeboy.mvc.model.dao.MemberDao;
+import com.codeboy.mvc.model.dao.UserScoreDao;
 import com.codeboy.mvc.model.dto.Member;
+import com.codeboy.mvc.model.dto.UserScore;
 import com.codeboy.mvc.model.dto.request.MemberUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -12,7 +14,10 @@ import java.util.NoSuchElementException;
 public class MemberServiceImpl implements MemberService {
     @Autowired
     MemberDao memberDao;
-
+    
+    @Autowired 
+    UserScoreDao userScoreDao;
+    
     //회원 정보 가져오기기
     public Member getMemberById(Long memberId) {
         isMemberExist(memberId);
@@ -73,6 +78,8 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     public int signUp(Member member) {
+    	UserScore userScore = new UserScore(member.getMemberId(), 0);
+    	userScoreDao.insertScore(userScore);
         return memberDao.insertMember(member);
     }
 

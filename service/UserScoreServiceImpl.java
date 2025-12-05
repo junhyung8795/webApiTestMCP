@@ -32,9 +32,6 @@ public class UserScoreServiceImpl implements UserScoreService {
 
         // 2. DAO 호출 → 삽입된 row 수 반환
         int result = userScoreDao.insertScore(userScore);
-        if() {
-        	
-        }
         // result가 0인지 아닌지는 컨트롤러에서 판단
         return result;
     }
@@ -72,4 +69,3 @@ public class UserScoreServiceImpl implements UserScoreService {
         return result;
     }
 }
-

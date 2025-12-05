@@ -1,4 +1,3 @@
-
 package com.codeboy.mvc.controller;
 
 import java.util.ArrayList;
@@ -89,7 +88,7 @@ public class CommentController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.failure(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."));
         }
-
+        commentUpdateRequest.setMemberId(memberId);
         if (!memberId.equals(commentUpdateRequest.getMemberId())) {
             // 인가 실패
             // 로그인 중인 회원이 자신이 작성한 댓글이 아닌 것을 수정하려할 때
